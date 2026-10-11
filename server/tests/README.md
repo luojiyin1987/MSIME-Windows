@@ -94,7 +94,7 @@ Build the Server test target in Release mode. Run the benchmark from a Windows t
 
 ```powershell
 cmake --build server/build-release --config Release --target MetasequoiaImeServerTests
-server/build-release/tests/Release/MetasequoiaImeServerTests.exe --benchmark-model-path 10000 > model-path.csv
+server/build-release/bin/Release/MetasequoiaImeServerTests.exe --benchmark-model-path 10000 > model-path.csv
 ```
 
 The executable creates small model files in a temporary data directory.
