@@ -102,7 +102,8 @@ inline std::wstring CandidateFrameSignature(const std::wstring &preedit, const s
     signature += L'|';
     signature += std::to_wstring(candidateSignature.size());
     signature += L':';
-    // Length-prefix the page bytes so candidate text cannot overlap the following state fields.
+    // Preserve each signature byte as one wchar_t value.
+    // This identity key compares bytes. It does not decode UTF-8 text.
     for (unsigned char byte : candidateSignature)
     {
         signature += static_cast<wchar_t>(byte);

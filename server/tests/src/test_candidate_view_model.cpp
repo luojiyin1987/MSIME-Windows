@@ -55,6 +55,23 @@ TEST_CASE(candidate_frame_signature_includes_page_state)
     REQUIRE(original != CandidateFrameSignature(L"preedit", views, 10, 20, changed));
 }
 
+TEST_CASE(candidate_frame_signature_keeps_preedit_selection_and_caret)
+{
+    CandidateViewItem first, second;
+    first.text = "first";
+    second.text = "second";
+    const std::vector<CandidateViewItem> views{first, second};
+    const CandidateFramePageState page{0, 1, false, true};
+    const std::wstring original = CandidateFrameSignature(L"preedit", views, 10, 20, page);
+
+    CandidateFramePageState changed = page;
+    changed.selected_index = 1;
+    REQUIRE(original != CandidateFrameSignature(L"preedit", views, 10, 20, changed));
+    REQUIRE(original != CandidateFrameSignature(L"edited", views, 10, 20, page));
+    REQUIRE(original != CandidateFrameSignature(L"preedit", views, 11, 20, page));
+    REQUIRE(original != CandidateFrameSignature(L"preedit", views, 10, 21, page));
+}
+
 TEST_CASE(candidate_frame_signature_keeps_length_prefixed_candidate_identity)
 {
     CandidateViewItem ab, c, a, bc;
