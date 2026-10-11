@@ -85,3 +85,35 @@ inline std::string CandidatePageSignature(const std::vector<CandidateViewItem> &
     }
     return signature;
 }
+
+struct CandidateFramePageState
+{
+    int selected_index = 0;
+    int page_index = 0;
+    bool has_previous_page = false;
+    bool has_next_page = false;
+};
+
+inline std::wstring CandidateFrameSignature(const std::wstring &preedit, const std::vector<CandidateViewItem> &views,
+                                            int caretX, int caretY, const CandidateFramePageState &pageState)
+{
+    const std::string candidateSignature = CandidatePageSignature(views);
+    std::wstring signature = std::to_wstring(preedit.size()) + L":" + preedit;
+    signature += L'|';
+    signature += std::to_wstring(candidateSignature.size());
+    signature += L':';
+    // Length-prefix the page bytes so candidate text cannot overlap the following state fields.
+    for (unsigned char byte : candidateSignature)
+    {
+        signature += static_cast<wchar_t>(byte);
+    }
+    signature += L'|';
+    signature += std::to_wstring(caretX) + L"," + std::to_wstring(caretY);
+    signature += L'|';
+    signature += std::to_wstring(pageState.selected_index) + L"," + std::to_wstring(pageState.page_index);
+    signature += L',';
+    signature += pageState.has_previous_page ? L'1' : L'0';
+    signature += L',';
+    signature += pageState.has_next_page ? L'1' : L'0';
+    return signature;
+}
