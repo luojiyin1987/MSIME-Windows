@@ -88,6 +88,35 @@ ctest --test-dir server/build-release -C Release --output-on-failure --no-tests=
 - `tests/src/test_engine_shuangpin_session.cpp`
   - session-level behavior tests
 
+## Model path benchmark
+
+Build the Server test target in Release mode. Run the benchmark from a Windows terminal:
+
+```powershell
+cmake --build server/build-release --config Release --target MetasequoiaImeServerTests
+server/build-release/tests/Release/MetasequoiaImeServerTests.exe --benchmark-model-path 10000 > model-path.csv
+```
+
+The executable creates small model files in a temporary data directory.
+It restores `METASEQUOIA_IME_DATA_DIR` when it exits.
+It does not load model contents.
+Each row reports P50, P95, P99, and worst latency in nanoseconds.
+
+`hot` repeats one path.
+`rotating` cycles through 128 paths.
+The rotating set increases metadata lookup pressure.
+It does not guarantee an operating system cache miss.
+`contended` adds a thread that creates and removes files in the model directory.
+This tests directory activity on the same volume.
+It does not simulate all disk workloads.
+
+The benchmark calls the production path resolvers used by `ApplyConfiguration()`.
+It measures their cost per call.
+It does not measure full `handle_key()` latency.
+Compare the `disabled-empty-id` row with enabled rows to estimate the added resolver cost.
+Run each case more than once on the target Windows machine.
+Record the storage type and active disk workload with the CSV results.
+
 ## Recommended Practice
 
 When you change input behavior, add a regression test if the change affects:
