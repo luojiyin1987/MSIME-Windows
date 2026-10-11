@@ -213,14 +213,16 @@ jobs:
       - name: Measure model path latency
         shell: pwsh
         run: |
-          & ./server/build-release/bin/Release/MetasequoiaImeServerTests.exe --benchmark-model-path 10000 |
-            Tee-Object -FilePath model-path.csv
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          for ($sample = 1; $sample -le 3; $sample++) {
+            & ./server/build-release/bin/Release/MetasequoiaImeServerTests.exe --benchmark-model-path 10000 |
+              Tee-Object -FilePath "model-path-$sample.csv"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Upload model path results
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: model-path-latency
-          path: model-path.csv
+          path: model-path-*.csv
 
   # The Server job builds the engine as a library with BUILD_TESTING off, so the engine's own suite
   # only ever ran on developer machines. It covers behaviour server/tests cannot reach, such as the

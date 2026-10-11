@@ -116,7 +116,7 @@ It does not measure full `handle_key()` latency.
 Compare the `disabled-empty-id` row with enabled rows to estimate the added resolver cost.
 Run each case more than once on the target Windows machine.
 Record the storage type and active disk workload with the CSV results.
-The Server CI job uploads `model-path-latency` with one Windows runner sample.
+The Server CI job uploads `model-path-latency` with three Windows runner samples.
 
 ## Recommended Practice
 
