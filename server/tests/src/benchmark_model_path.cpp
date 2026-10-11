@@ -75,11 +75,12 @@ size_t PercentileIndex(size_t count, size_t percentile)
     return ((count - 1) * percentile + 99) / 100;
 }
 
-template <typename Fn> void Measure(const std::string &name, size_t iterations, bool expect_found, Fn fn)
+template <typename Fn>
+void Measure(const std::string &name, size_t iterations, bool expect_found, Fn fn, size_t warmup = 1000)
 {
     std::vector<long long> samples;
     samples.reserve(iterations);
-    for (size_t index = 0; index < 1000; ++index)
+    for (size_t index = 0; index < warmup; ++index)
     {
         (void)fn(index);
     }
@@ -136,6 +137,12 @@ class DirectoryContention
 void RunScenarios(size_t iterations, const std::vector<std::string> &present, const std::vector<std::string> &missing,
                   const std::string &prefix)
 {
+    std::vector<std::string> first_touch;
+    first_touch.reserve(iterations);
+    for (size_t index = 0; index < iterations; ++index)
+    {
+        first_touch.push_back(prefix + "first-touch-" + std::to_string(index));
+    }
     Measure(prefix + "collocation-present-hot", iterations, true,
             [&](size_t) { return ResolveCollocationModelPath(present.front()); });
     Measure(prefix + "collocation-missing-hot", iterations, false,
@@ -144,6 +151,9 @@ void RunScenarios(size_t iterations, const std::vector<std::string> &present, co
             [&](size_t index) { return ResolveCollocationModelPath(present[index % present.size()]); });
     Measure(prefix + "collocation-missing-rotating", iterations, false,
             [&](size_t index) { return ResolveCollocationModelPath(missing[index % missing.size()]); });
+    Measure(
+        prefix + "collocation-missing-first-touch", iterations, false,
+        [&](size_t index) { return ResolveCollocationModelPath(first_touch[index]); }, 0);
     Measure(prefix + "neural-present-hot", iterations, true, [](size_t) { return ResolveNeuralDesktopModelPath(); });
     Measure(prefix + "disabled-empty-id", iterations, false, [](size_t) { return ResolveCollocationModelPath(""); });
 }

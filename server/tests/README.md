@@ -106,6 +106,8 @@ Each row reports P50, P95, P99, and worst latency in nanoseconds.
 `rotating` cycles through 128 paths.
 The rotating set increases metadata lookup pressure.
 It does not guarantee an operating system cache miss.
+`first-touch` checks each missing path once without benchmark warmup.
+The operating system can still cache shared parent directories.
 `contended` adds a thread that creates and removes files in the model directory.
 This tests directory activity on the same volume.
 It does not simulate all disk workloads.
