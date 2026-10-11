@@ -205,11 +205,6 @@ jobs:
       - name: Check the Release binaries and symbols
         shell: pwsh
         run: ./scripts/ci/check-server-binaries.ps1 -BuildDir server/build-release/bin/Release
-      - name: Test with the product's exact data
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/ci/test-server.ps1 -ServerRoot server -StagingRoot "$env:RUNNER_TEMP/product-data" -BuildDir build-release
       - name: Measure model path latency
         shell: pwsh
         run: |
@@ -223,6 +218,11 @@ jobs:
         with:
           name: model-path-latency
           path: model-path-*.csv
+      - name: Test with the product's exact data
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/ci/test-server.ps1 -ServerRoot server -StagingRoot "$env:RUNNER_TEMP/product-data" -BuildDir build-release
 
   # The Server job builds the engine as a library with BUILD_TESTING off, so the engine's own suite
   # only ever ran on developer machines. It covers behaviour server/tests cannot reach, such as the
