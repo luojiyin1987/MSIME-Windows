@@ -115,6 +115,8 @@ It does not simulate all disk workloads.
 The benchmark calls the production path resolvers used by `ApplyConfiguration()`.
 It measures their cost per call.
 It does not measure full `handle_key()` latency.
+Each call also reads the CRT environment override and builds a path.
+An installed machine can use the cached registry path instead.
 Compare the `disabled-empty-id` row with enabled rows to estimate the added resolver cost.
 Run each case more than once on the target Windows machine.
 Record the storage type and active disk workload with the CSV results.

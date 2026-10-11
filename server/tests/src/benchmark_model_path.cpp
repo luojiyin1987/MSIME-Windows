@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -24,26 +25,33 @@ class DataRoot
   public:
     DataRoot()
     {
-        const DWORD length = GetEnvironmentVariableW(L"METASEQUOIA_IME_DATA_DIR", nullptr, 0);
-        if (length > 0)
+        wchar_t *previous = nullptr;
+        size_t size = 0;
+        if (_wdupenv_s(&previous, &size, L"METASEQUOIA_IME_DATA_DIR") != 0)
         {
-            previous_.resize(length);
-            const DWORD read = GetEnvironmentVariableW(L"METASEQUOIA_IME_DATA_DIR", previous_.data(), length);
-            previous_.resize(read);
+            throw std::runtime_error("Cannot read benchmark data directory");
+        }
+        if (previous != nullptr)
+        {
+            previous_ = previous;
             had_previous_ = true;
+            std::free(previous);
         }
         root_ = fs::temp_directory_path() / (L"msime-model-path-bench-" + std::to_wstring(GetCurrentProcessId()) +
                                              L"-" + std::to_wstring(GetTickCount64()));
         fs::create_directories(root_ / "models");
-        if (!SetEnvironmentVariableW(L"METASEQUOIA_IME_DATA_DIR", root_.c_str()))
+        if (_wputenv_s(L"METASEQUOIA_IME_DATA_DIR", root_.c_str()) != 0 || metasequoia::data_directory() != root_)
         {
-            throw std::runtime_error("Cannot set benchmark data directory");
+            _wputenv_s(L"METASEQUOIA_IME_DATA_DIR", had_previous_ ? previous_.c_str() : L"");
+            std::error_code error;
+            fs::remove_all(root_, error);
+            throw std::runtime_error("Cannot isolate benchmark data directory");
         }
     }
 
     ~DataRoot()
     {
-        SetEnvironmentVariableW(L"METASEQUOIA_IME_DATA_DIR", had_previous_ ? previous_.c_str() : nullptr);
+        _wputenv_s(L"METASEQUOIA_IME_DATA_DIR", had_previous_ ? previous_.c_str() : L"");
         std::error_code error;
         fs::remove_all(root_, error);
     }
@@ -164,17 +172,24 @@ int RunModelPathBenchmark(int argc, char **argv)
     try
     {
         size_t iterations = 10000;
-        if (argc > 1)
-        {
-            iterations = std::stoul(argv[1]);
-            if (iterations == 0)
-            {
-                throw std::invalid_argument("Iteration count must be positive");
-            }
-        }
         if (argc > 2)
         {
             throw std::invalid_argument("Usage: --benchmark-model-path [iterations]");
+        }
+        if (argc > 1)
+        {
+            const std::string argument(argv[1]);
+            if (argument.empty() ||
+                !std::all_of(argument.begin(), argument.end(), [](char digit) { return digit >= '0' && digit <= '9'; }))
+            {
+                throw std::invalid_argument("Iteration count must contain digits only");
+            }
+            const auto requested = std::stoull(argument);
+            if (requested == 0 || requested > 100000)
+            {
+                throw std::invalid_argument("Iteration count must be between 1 and 100000");
+            }
+            iterations = static_cast<size_t>(requested);
         }
 
         DataRoot data;
