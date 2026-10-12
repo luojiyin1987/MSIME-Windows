@@ -1,4 +1,5 @@
 import { onHostMessage } from '../utils/host-messages';
+import { setAiAssistantState } from './ai-assistant-state';
 import { serializeHostMessage } from '../../../../shared/messages';
 import { applyCollocationModelStatus, applyNeuralModelStatus, applyCandidateArrange, applyDropdownValue as applyDropdown, applyToggleState as applyToggle, setFuzzyRuleOptionsDisabled, setMixedCandidateOptionsDisabled, setSmartPunctuationOptionsDisabled } from './shared';
 
@@ -54,6 +55,7 @@ function applyConfigData(data: Record<string, any>, target?: string): void {
           candidate_window_preedit_font_size: data?.appearance?.candidate_window_preedit_font_size,
           cand_text_color: data?.appearance?.cand_text_color,
           page_size: data?.appearance?.page_size,
+          candidate_window_fit_content: data?.appearance?.candidate_window_fit_content,
           candidate_window_follow_cursor: data?.appearance?.candidate_window_follow_cursor,
           candidate_fixed_badge: data?.appearance?.candidate_fixed_badge,
           candidate_fixed_badge_style: data?.appearance?.candidate_fixed_badge_style,
@@ -401,6 +403,15 @@ function applyConfigData(data: Record<string, any>, target?: string): void {
     if (typeof data.ai_assistant.enabled === 'boolean') {
       applyToggleState('aiEnabled', data.ai_assistant.enabled);
     }
+    if (!target) {
+      const text = (value: unknown) => (typeof value === 'string' ? value : '');
+      setAiAssistantState({
+        provider: text(data.ai_assistant.provider),
+        endpoint: text(data.ai_assistant.endpoint),
+        model: text(data.ai_assistant.model),
+        token: text(data.ai_assistant.token)
+      });
+    }
   }
 
   if (applies('input') || applies('helpcode') || applies('tools-settings')) {
@@ -429,6 +440,7 @@ function applyConfigData(data: Record<string, any>, target?: string): void {
       module.applyTencentTmtConfig(data?.tencent_tmt);
       module.applyNiuTransConfig(data?.niutrans);
       module.applyCustomTranslationConfig(data?.custom_translation);
+      module.applyTranslationConfig(data?.translation);
     });
   }
   if (applies('tools-settings')) {

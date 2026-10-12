@@ -156,12 +156,16 @@ bool ReadColors(const toml::table *table, CandidateColors &out)
         !ReadCssColor(*table, "hover", out.hover) || !ReadCssColor(*table, "surface", out.surface) ||
         !ReadCssColor(*table, "border", out.border) || !ReadCssColor(*table, "text", out.text) ||
         !ReadCssColor(*table, "number", out.number) || !ReadCssColor(*table, "translation", out.translation) ||
+        !ReadCssColor(*table, "translation_pos", out.translationPos) ||
+        !ReadCssColor(*table, "translation_separator", out.translationSeparator) ||
         !ReadCssColor(*table, "candidate_text", out.candidateText) ||
         !ReadCssColor(*table, "preedit_text", out.preeditText) ||
         !ReadCssColor(*table, "preedit_caret", out.preeditCaret) ||
         !ReadCssColor(*table, "selected_text", out.selectedText) ||
         !ReadCssColor(*table, "selected_number", out.selectedNumber) ||
         !ReadCssColor(*table, "selected_translation", out.selectedTranslation) ||
+        !ReadCssColor(*table, "selected_translation_pos", out.selectedTranslationPos) ||
+        !ReadCssColor(*table, "selected_translation_separator", out.selectedTranslationSeparator) ||
         !ReadCssColor(*table, "selected_bar", out.selectedBar) ||
         !ReadCssColor(*table, "preedit_background", out.preeditBackground) ||
         !ReadCssColor(*table, "preedit_divider", out.preeditDivider))
@@ -415,6 +419,11 @@ std::optional<Package> Load(const std::filesystem::path &skinsRoot, const std::s
             SetError(error, "candidate_window.page_arrows 必须是 true 或 false");
             return std::nullopt;
         }
+        if (!ReadOptionalBool(*window, "fit_content", package.fitContent))
+        {
+            SetError(error, "candidate_window.fit_content 必须是 true 或 false");
+            return std::nullopt;
+        }
         if (const toml::node *backgroundNode = window->get("background"))
         {
             const auto *background = backgroundNode->as_table();
@@ -566,6 +575,11 @@ std::optional<DefaultSkin> LoadDefault(const std::filesystem::path &skinsRoot, c
                 SetError(error, "candidate_window.page_arrows 必须是 true 或 false");
                 return std::nullopt;
             }
+            if (!ReadOptionalBool(*window, "fit_content", skin.fitContent))
+            {
+                SetError(error, "candidate_window.fit_content 必须是 true 或 false");
+                return std::nullopt;
+            }
         }
         return skin;
     }
@@ -586,5 +600,16 @@ bool ResolvePageArrows(const std::filesystem::path &skinsRoot, const std::string
     // 配置里的皮肤既不是内置、也没能作为外部皮肤加载时，渲染端回退到 fluent，这里跟着回退。
     const auto defaults = LoadDefault(skinsRoot, IsBuiltIn(base) ? base : "fluent");
     return defaults && defaults->pageArrows ? *defaults->pageArrows : kDefaultPageArrows;
+}
+
+bool ResolveFitContent(const std::filesystem::path &skinsRoot, const std::string &skinId, const Package *package)
+{
+    if (package && package->fitContent)
+    {
+        return *package->fitContent;
+    }
+    const std::string base = package ? package->base : skinId;
+    const auto defaults = LoadDefault(skinsRoot, IsBuiltIn(base) ? base : "fluent");
+    return defaults && defaults->fitContent ? *defaults->fitContent : kDefaultFitContent;
 }
 } // namespace CandidateSkinCatalog

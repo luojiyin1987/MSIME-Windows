@@ -132,7 +132,15 @@ function RenderCandidateItems(root, items) {
     if (item.translation) {
       const translation = document.createElement('span');
       translation.className = 'cand-translation';
-      translation.textContent = item.translation;
+      // 词性与分隔符各包一层 span（.cand-pos / .cand-sep），其余片段是文本节点。
+      const parts = item.translationParts || [['', item.translation]];
+      translation.replaceChildren(...parts.map(([kind, text]) => {
+        if (!kind) return text;
+        const part = document.createElement('span');
+        part.className = kind;
+        part.textContent = text;
+        return part;
+      }));
       slot.append(translation);
     }
   });
@@ -166,7 +174,9 @@ window.MsimeStickyCandidateCard = function (reset, key) {
   const follow = function (keptValue, natural) {
     return natural >= keptValue || natural < keptValue * kStickyShrinkRatio ? natural : keptValue;
   };
-  let width = follow(kept.width, rect.width);
+  // Skins with fit_content want the card exactly as wide as the text.
+  const fitContent = document.documentElement.dataset.fitContent === 'on';
+  let width = fitContent ? rect.width : follow(kept.width, rect.width);
   const maxWidth = Number.parseFloat(box.style.maxWidth);
   if (maxWidth > 0) width = Math.min(width, maxWidth);
   const height = follow(kept.height, rect.height);
@@ -471,10 +481,19 @@ void UpdateHtmlContentWithJavaScript(ComPtr<ICoreWebView2> webview, const std::w
         nlohmann::json candidateItems = nlohmann::json::array();
         for (const CandidateViewItem &item : content->page->page_views)
         {
+            nlohmann::json translationParts = nlohmann::json::array();
+            for (const auto &segment : FanyImeIpc::SegmentTranslationGloss(item.translation))
+            {
+                const char *kind = segment.kind == FanyImeIpc::TranslationSegmentKind::PartOfSpeech ? "cand-pos"
+                                   : segment.kind == FanyImeIpc::TranslationSegmentKind::Separator  ? "cand-sep"
+                                                                                                    : "";
+                translationParts.push_back(nlohmann::json::array({kind, segment.text}));
+            }
             candidateItems.push_back({{"text", item.text},
                                       {"annotation", item.annotation},
                                       {"badge", item.badge},
                                       {"translation", item.translation},
+                                      {"translationParts", std::move(translationParts)},
                                       {"fixedPosition", item.fixed_position}});
         }
         script.append(kRenderCandidateItemsScript);

@@ -179,11 +179,19 @@ nlohmann::json CandidateColorsToJson(const CandidateSkinCatalog::CandidateColors
     if (colors.showSelectedBar.has_value())
         json["showSelectedBar"] = *colors.showSelectedBar;
     const std::pair<const char *, const std::string *> optional[] = {
-        {"candidateText", &colors.candidateText},   {"preeditText", &colors.preeditText},
-        {"preeditCaret", &colors.preeditCaret},     {"selectedText", &colors.selectedText},
-        {"selectedNumber", &colors.selectedNumber}, {"selectedTranslation", &colors.selectedTranslation},
-        {"selectedBar", &colors.selectedBar},       {"preeditBackground", &colors.preeditBackground},
+        {"candidateText", &colors.candidateText},
+        {"preeditText", &colors.preeditText},
+        {"preeditCaret", &colors.preeditCaret},
+        {"selectedText", &colors.selectedText},
+        {"selectedNumber", &colors.selectedNumber},
+        {"selectedTranslation", &colors.selectedTranslation},
+        {"selectedBar", &colors.selectedBar},
+        {"preeditBackground", &colors.preeditBackground},
         {"preeditDivider", &colors.preeditDivider},
+        {"translationPos", &colors.translationPos},
+        {"translationSeparator", &colors.translationSeparator},
+        {"selectedTranslationPos", &colors.selectedTranslationPos},
+        {"selectedTranslationSeparator", &colors.selectedTranslationSeparator},
     };
     for (const auto &[key, value] : optional)
     {
@@ -396,6 +404,7 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
     const TencentTmtConfig &tencent_tmt = GetConfiguredTencentTmt();
     const CustomTranslationConfig &custom_translation = GetConfiguredCustomTranslation();
     const NiuTransConfig &niutrans = GetConfiguredNiuTrans();
+    const auto translation = GetConfiguredTranslation();
     const NetworkProxyConfig network_proxy = GetConfiguredNetworkProxy();
     const FrequencyAdjustmentConfig &frequency = GetConfiguredFrequencyAdjustment();
     const FloatingToolbarItemsConfig &toolbar = GetConfiguredFloatingToolbarItems();
@@ -603,6 +612,7 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
             {"settings_window_linger", GetConfiguredSettingsWindowLinger()},
             {"candidate_window_layout", GetConfiguredCandidateWindowLayout()},
             {"candidate_window_follow_cursor", GetConfiguredCandidateWindowFollowCursor()},
+            {"candidate_window_fit_content", GetConfiguredCandidateWindowFitContent()},
             {"candidate_skin", GetConfiguredCandidateSkin()},
             {"candidate_window_preedit_style", GetConfiguredCandidateWindowPreeditStyle()},
             {"candidate_window_preedit_shuangpin_quanpin", GetConfiguredCandidateWindowPreeditShuangpinQuanpin()},
@@ -702,6 +712,7 @@ std::wstring BuildConfigMessage(bool refresh_skin_catalog)
             {"endpoint", custom_translation.endpoint},
             {"api_key", custom_translation.api_key}}},
           {"niutrans", {{"enabled", niutrans.enabled}, {"app_id", niutrans.app_id}, {"apikey", niutrans.apikey}}},
+          {"translation", {{"provider", translation->provider}}},
           {"network", {{"proxy_mode", network_proxy.mode}, {"proxy_server", network_proxy.server}}},
           {"helpcode",
            {{"shuangpin_helpcode", GetConfiguredShuangpinHelpcodeEnabled()},
@@ -864,6 +875,8 @@ bool ApplyConfigUpdate(const json::object &data)
         return SetConfiguredCandidateWindowLayout(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_follow_cursor")
         return SetConfiguredCandidateWindowFollowCursor(json::value_to<bool>(data.at("value")));
+    if (path == "appearance.candidate_window_fit_content")
+        return SetConfiguredCandidateWindowFitContent(json::value_to<bool>(data.at("value")));
     if (path == "appearance.candidate_skin")
         return SetConfiguredCandidateSkin(json::value_to<std::string>(data.at("value")));
     if (path == "appearance.candidate_window_preedit_style")
@@ -1080,6 +1093,11 @@ bool ApplyConfigUpdate(const json::object &data)
         const json::value &value = data.at("value");
         return value.is_string() && SetConfiguredNiuTransString(path.substr(std::string("niutrans.").size()),
                                                                 json::value_to<std::string>(value));
+    }
+    if (path == "translation.provider")
+    {
+        const json::value &value = data.at("value");
+        return value.is_string() && SetConfiguredTranslationString("provider", json::value_to<std::string>(value));
     }
     if (path.rfind("network.", 0) == 0)
     {
@@ -1649,7 +1667,7 @@ void HandleWebMessage(HWND hwnd, ICoreWebView2WebMessageReceivedEventArgs *args)
                 {
                     ok = default_input_method::SetAsDefault(message);
                     if (ok)
-                        message = "已设为默认输入法，新打开的窗口会使用水杉输入法。";
+                        message = "已设为默认输入法，水杉输入法在中文（简体）中排第一位。";
                 }
                 const default_input_method::Status status = default_input_method::QueryStatus();
                 json::value response = {{"type", "defaultImeResponse"},

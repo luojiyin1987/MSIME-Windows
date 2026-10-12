@@ -102,6 +102,16 @@ Source: "{#MySourceRoot}\THIRD_PARTY_NOTICES.txt"; \
 Source: "{#MySourceRoot}\LICENSE.txt"; \
     DestDir: "{commonpf64}\metasequoiaime"; Flags: ignoreversion
 
+; 输入法语言配置（profile）的图标放在固定路径。TSF DLL 每次升级都换版本目录，图标若指向 DLL，
+; 注册表里的图标路径就跟着变；任务栏恰好在换目录时取不到图标，就改显示「简体」文字并一直沿用到
+; 资源管理器重启。DLL 注册时发现自己上一级目录有这个文件就改用它（windows/src/Register/Register.cpp），
+; 所以这两条必须排在下面两个 regserver 条目之前；32 位和 64 位 DLL 各按自己的上一级目录找，各放一份。
+Source: "{#MySourceRoot}\MetasequoiaImeTip.ico"; \
+    DestDir: "{commonpf32}\metasequoiaime"; Flags: ignoreversion
+
+Source: "{#MySourceRoot}\MetasequoiaImeTip.ico"; \
+    DestDir: "{commonpf64}\metasequoiaime"; Flags: ignoreversion
+
 ; TSF DLL 使用版本独立目录，避免升级时覆盖仍被进程加载的 DLL。
 ; PDB 与对应 DLL 放在同一目录，调试器可按二进制的内嵌路径自动找到符号。
 ; 只有 Prepare-PackageFiles.ps1 -IncludeSymbols 才会把 PDB 放进 tsf_dll\；默认本地打包不含符号，
@@ -931,6 +941,34 @@ begin
   Result := IsShippedAppDataItem(FileName) or IsRuntimeAppDataItem(FileName) or IsRetiredAppDataItem(FileName);
 end;
 
+{ 0.9.x 把效果档模型随包装在数据目录根下，现在 Server 只认 models\neural-desktop\。根下那份和
+  设置页下载的是同一个 model-v1 发布文件，在清理把它当退役文件删掉之前挪过去，升级用户就不用重下
+  （下载走 GitHub，不少用户连不上）。校验和对不上、或新位置已有文件时什么都不做，留给清理删。}
+procedure AdoptRetiredDesktopModel(const ExpectedSha256: String);
+var
+  OldPath, NewDir, NewPath: String;
+begin
+  OldPath := AddBackslash(GetDataDir('')) + 'sentence-model-desktop.safetensors';
+  NewDir := AddBackslash(GetDataDir('')) + 'models\neural-desktop';
+  NewPath := AddBackslash(NewDir) + 'sentence-model-desktop.safetensors';
+  if (not FileExists(OldPath)) or FileExists(NewPath) then
+    exit;
+  try
+    if CompareText(GetSHA256OfFile(OldPath), ExpectedSha256) <> 0 then
+    begin
+      Log('Retired desktop model does not match model-v1; leaving it to cleanup.');
+      exit;
+    end;
+  except
+    Log('Cannot hash retired desktop model: ' + GetExceptionMessage);
+    exit;
+  end;
+  if ForceDirectories(NewDir) and RenameFile(OldPath, NewPath) then
+    Log('Moved retired desktop model to ' + NewPath)
+  else
+    Log('Could not move retired desktop model to ' + NewPath);
+end;
+
 function InitializeUninstall(): Boolean;
 begin
   RegQueryStringValue(
@@ -1606,6 +1644,8 @@ begin
     Result := DataDirProblem;
     exit;
   end;
+  { 轻量包不清根目录，但新 Server 同样只认 models\neural-desktop\，所以两种包都要挪。}
+  AdoptRetiredDesktopModel('0a6ecba69bf1d39c7eb49549c716477dd6c03fdf05757773e1f50435262fb469');
 #ifdef LightPackage
   { 轻量包不替换词库：只清 HTML 和 Server/TSF，保留本机 msime.db 等。}
   TryDeleteTree(AddBackslash(GetDataDir('')) + 'html');
@@ -1658,10 +1698,25 @@ begin
   end;
 end;
 
+{ 旧版设置页的「设为默认」写的是「替代默认输入法」。卸载后它仍指向水杉，系统设置里
+  就残留一个不存在的输入法；只清指向水杉的那一项，用户自己选的别的输入法不动。}
+procedure ClearOurInputMethodOverride;
+var
+  OverrideId: String;
+begin
+  if RegQueryStringValue(HKCU, 'Control Panel\International\User Profile',
+    'InputMethodOverride', OverrideId) and
+    (CompareText(OverrideId,
+      '0804:{E3062E9A-D834-4637-8958-ED8CFA427D01}{4D59B1B4-D503-44AE-9259-BAD9BB2778AB}') = 0) then
+    RegDeleteValue(HKCU, 'Control Panel\International\User Profile',
+      'InputMethodOverride');
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
   begin
+    ClearOurInputMethodOverride;
     DeleteWatchdogLogonTask;
     RegDeleteValue(
       HKLM,

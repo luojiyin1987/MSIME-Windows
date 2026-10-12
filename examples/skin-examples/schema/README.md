@@ -20,6 +20,7 @@
 - `shadow`：卡片阴影，`none` | `soft` | `strong`；不写则沿用 `base`。只影响候选卡片，不影响右键菜单
 - `font_family`：候选字体名，UTF-8 编码后最长 64 字节（约 21 个汉字），不能含引号、反斜杠、逗号、分号、尖括号、花括号和反引号。排在用户设置的字体前面，缺字时仍回落到用户字体；字号不由皮肤决定
 - `page_arrows`：候选框里的翻页箭头，`true` | `false`。横排时是候选右侧贴着最后一行的一小列，竖排时是最后一行下方的一矮行、“‹”与序号左对齐；颜色取 `number`，悬停底色取 `hover`。不写则沿用 `base` 的默认皮肤设置（数据目录 `skins\default\<base>\skin.toml`，出厂为 `false`）
+- `fit_content`：卡片是否严格按候选文字所需的宽度收紧，`true` | `false`。打开后不再垫出厂的最小宽度（D2D 160 DIP、WebView2 `7em`），同一次输入里后到的翻译等内容消失时宽度也立刻缩回；`min_width_dip` 和装饰图 `width_dip` 仍然生效。不写则沿用 `base` 的默认皮肤设置（出厂为 `false`）
 
 ### `[candidate_window.decoration]`（可选）
 
@@ -50,12 +51,24 @@
 | `preedit_caret` | 预编辑光标 | `accent` |
 | `selected_text` | 选中候选的文字 | `base` 的选中行文字色 |
 | `selected_number` | 选中候选的序号 | `base` 的选中行序号色 |
-| `selected_translation` | 选中候选的翻译 | `translation`，再不写则取选中文字色的 62% 不透明度 |
+| `translation_pos` | 翻译里的词性（`n.`、`adj.`、`proper n.` 等） | 与翻译同色 |
+| `translation_separator` | 翻译里义项之间的分隔符（`;`、`；`） | 与翻译同色 |
+| `selected_translation` | 选中候选的翻译 | `base` 的选中行翻译色（微信、杨柳青、秋桂铺实色高亮，各有一组）；`base` 没有时用 `translation`，再不写则取选中文字色的 62% 不透明度 |
+| `selected_translation_pos` | 选中候选翻译里的词性 | 写了 `selected_translation` 时与它同色；否则 `base` 的选中行词性色，再回落到 `translation_pos` |
+| `selected_translation_separator` | 选中候选翻译里的分隔符 | 写了 `selected_translation` 时与它同色；否则 `base` 的选中行分隔符色，再回落到 `translation_separator` |
 | `selected_bar` | 选中项左侧竖条 | `accent` |
 | `preedit_background` | 预编辑行底色，圆角同高亮圆角 | 透明 |
 | `preedit_divider` | 预编辑行下方 1px 分隔线 | 无 |
 
 设置页里的「候选文字颜色」优先于 `text`、`candidate_text` 和 `preedit_text`。
+
+内置皮肤的翻译用 [Notion 调色板](https://docs.super.so/notion-colors)：单词分别是 fluent 紫、微信蓝、杨柳青绿、石墨棕、微软粉，秋桂浅色橙、深色黄；词性换成相邻的另一个 Notion 色（紫配粉、蓝配绿、绿配蓝、棕配橙、橙配红、黄配橙、粉配紫）再加 `80` 透明度调淡，与单词区分开；分隔符是单词色加 `73` 透明度。包写了 `translation` 而没写 `translation_pos` / `translation_separator` 时，`base` 的词性和分隔符配色一并作废，跟随新的翻译色。想要同样的效果，词性取另一个色相、在色值后补两位十六进制透明度即可：
+
+```toml
+translation = "#529cca"
+translation_pos = "#4dab9a80"
+translation_separator = "#529cca73"
+```
 
 ### `[candidate.dark.menu]` / `[candidate.light.menu]`（可选）
 

@@ -55,7 +55,7 @@ cn_en_mixed_input = true
 # 中英混输触发所需的最少字母数，范围 1–8
 cn_en_mixed_input_min_chars = 5
 # 在竖排候选窗口中显示中英文互译（每项最多两个简短释义）
-candidate_translations = true
+candidate_translations = false
 # 中文输入状态下显示 emoji 前缀候选（排在候选项列表最后）
 emoji_mixed_input = false
 # 中文输入状态下显示颜文字前缀候选（排在 emoji 之后）
@@ -85,8 +85,8 @@ sentence_show_next_on_duplicate = false
 # 在候选窗的整句候选后显示来源标签（〔Trigram〕〔Unigram〕〔神经D〕〔神经K〕〔万象〕〔八股〕〔墨奇〕）
 sentence_source_badge = false
 # octagram 语法模型（八股文，.gram 格式）：字级搭配强度表，与词表零耦合。总开关，一并接入
-# 激活模型的全部能力：解码期逐边叠加搭配分，且在 n-best 上按整句搭配分重排。模型包从设置页
-# 内置目录按需下载（万象 LTS 约 390MB、八股文词级约 197/39MB、白霜约 7MB），布局
+# 激活模型的全部能力：解码期逐边叠加搭配分一次，并把解码最优路径作为整句来源行显示。模型包
+# 从设置页内置目录按需下载（万象 LTS 约 390MB、八股文词级约 197/39MB、白霜约 7MB），布局
 # models/<id>/<id>.gram；模型未下载时开关不生效，词格静默降级。整句来源行：每个模型包
 # 显示自己的标签（万象、八股、墨奇），目录外手填的 id 落回〔八股〕。
 sentence_collocation_enabled = false
@@ -94,12 +94,22 @@ sentence_collocation_enabled = false
 # 目录里的模型并单选激活后写入该模型 id；删除守卫只保护当前显式激活的包。也可手动放置
 # 模型后直接填 id。
 sentence_collocation_model = ""
-# 搭配项的线性权重（log10 域），越大越信任搭配表。不进设置页，供配置文件高级调参
-sentence_collocation_weight = 0.1
-sentence_collocation_rerank_weight = 0.05
+# 搭配项的标定系数（log10 域；scorer 已把 .gram 的自然对数换算过来）。1.0 = librime 的同
+# 相对量级，0 = 关闭加成。不进设置页，供配置文件高级调参。
+sentence_collocation_weight = 1.0
+# octagram 六参数，默认对齐万象现行（wanxiang.schema.yaml）：max/min 是搭配上下文与词的
+# 码点长度上限/下限，penalty 是命中搭配、non/weak 是未命中/弱命中的惩罚，rear 是句尾项惩罚。
+# 不进设置页，供配置文件高级调参。
+sentence_collocation_max_length = 6
+sentence_collocation_min_length = 2
+sentence_collocation_penalty = -14.0
+sentence_collocation_non_penalty = -6.0
+sentence_collocation_weak_penalty = -100.0
+sentence_collocation_rear_penalty = -18.0
 
 #
 # 腾讯云机器翻译（竖排候选项本地词库未命中时的补全）
+# enabled 布尔仅为旧版兼容保留，实际生效方由 [translation].provider 决定。
 #
 [tencent_tmt]
 enabled = false
@@ -121,12 +131,21 @@ api_key = ""
 
 #
 # 小牛翻译（NiuTrans）机器翻译。app_id 与 apikey 在“控制台->API应用”中查看。
-# enabled = true 时优先于腾讯云与自定义 DeepLX。
+# enabled 布尔仅为旧版兼容保留，实际生效方由 [translation].provider 决定。
 #
 [niutrans]
 enabled = true
 app_id = ""
 apikey = ""
+
+#
+# 候选词翻译当前生效的在线提供方：tencent | niutrans | custom | ai。
+# ai 表示复用 AI 辅助当前服务商的接口地址、Token 与模型。
+# 留空表示按 [tencent_tmt]/[custom_translation]/[niutrans] 的旧 enabled 布尔自动推导，
+# 在设置页选择过一次后会写入具体值。
+#
+[translation]
+provider = ""
 
 #
 # 网络代理：云输入、模型下载、AI 联想、翻译、语音识别等需要联网的功能共用。
@@ -182,6 +201,8 @@ candidate_window_preedit_font_size = 15
 cand_text_color = "auto"
 # 每页候选词数量，可选：3, 4, 5, 6, 7, 8, 9
 page_size = 6
+# 候选窗口严格按文字所需的宽度收紧，不垫出厂最小宽度；皮肤 skin.toml 的 fit_content 打开时始终收紧
+candidate_window_fit_content = false
 # 候选窗口跟随光标
 candidate_window_follow_cursor = true
 # 候选窗口排列方式，可选："vertical", "horizontal"

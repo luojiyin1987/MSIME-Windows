@@ -190,7 +190,13 @@ extern bool g_assoc_sentence_source_badge;
 extern bool g_assoc_sentence_collocation_enabled;
 extern std::string g_assoc_sentence_collocation_model;
 extern double g_assoc_sentence_collocation_weight;
-extern double g_assoc_sentence_collocation_rerank_weight;
+// octagram 六参数（万象现行默认）。不进设置页，供配置文件高级调参。
+extern int g_assoc_sentence_collocation_max_length;
+extern int g_assoc_sentence_collocation_min_length;
+extern double g_assoc_sentence_collocation_penalty;
+extern double g_assoc_sentence_collocation_non_penalty;
+extern double g_assoc_sentence_collocation_weak_penalty;
+extern double g_assoc_sentence_collocation_rear_penalty;
 extern bool g_emoji_mixed_input_enabled;
 extern bool g_kaomoji_mixed_input_enabled;
 extern bool g_unicode_mode_enabled;
@@ -226,6 +232,7 @@ extern bool g_paired_punctuation_enabled;
 extern std::string g_punctuation_lock;
 extern std::string g_candidate_window_layout;
 extern bool g_candidate_window_follow_cursor;
+extern bool g_candidate_window_fit_content;
 extern std::string g_ui_backend;
 extern std::string g_ui_backend_active;
 extern std::string g_candidate_skin;
@@ -248,6 +255,7 @@ extern AiAssistantConfig g_ai_assistant;
 extern TencentTmtConfig g_tencent_tmt;
 extern CustomTranslationConfig g_custom_translation;
 extern NiuTransConfig g_niutrans;
+extern std::string g_translation_provider;
 extern std::mutex g_network_proxy_mutex;
 extern NetworkProxyConfig g_network_proxy; // guarded by g_network_proxy_mutex
 extern FrequencyAdjustmentConfig g_frequency_adjustment;
@@ -267,6 +275,9 @@ bool IsValidCandidateFixedBadgeStyle(const std::string &style);
 bool IsValidSettingsWindowLinger(const std::string &linger);
 bool IsValidTranslationTargetLanguage(const std::string &language);
 std::string AiAssistantTokenSlotKey(std::string_view provider);
+// ime_config_services.cpp：按当前各段全局配置重建候选词翻译快照。改动 provider、腾讯云、
+// 自定义翻译、小牛翻译或 AI 辅助服务商配置的地方，改完都要调一次。
+void PublishTranslationConfig();
 void RememberConfigWriteTime();
 
 // ime_config_toml.cpp

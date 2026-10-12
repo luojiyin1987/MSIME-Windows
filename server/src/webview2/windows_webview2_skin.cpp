@@ -207,7 +207,11 @@ void AppendExternalCandidateColorCss(std::wstring &css, const CandidateSkinCatal
     if (!colors.translation.empty())
     {
         css.append(L".cand-translation { opacity: 1; }\n");
+        // 换了翻译色就不再用基础皮肤给词性/分隔符配的颜色，没单独写的跟随新的翻译色。
+        css.append(L".cand-translation .cand-pos, .cand-translation .cand-sep { color: inherit; }\n");
     }
+    add(colors.translationPos, L".cand-translation .cand-pos", L"color");
+    add(colors.translationSeparator, L".cand-translation .cand-sep", L"color");
     if (colors.showSelectedBar.has_value() && !*colors.showSelectedBar)
     {
         css.append(L".first::before { display: none; }\n");
@@ -229,7 +233,12 @@ void AppendExternalCandidateColorCss(std::wstring &css, const CandidateSkinCatal
     if (!colors.selectedTranslation.empty())
     {
         css.append(L".cand.first .cand-translation { opacity: 1; }\n");
+        css.append(
+            L".cand.first .cand-translation .cand-pos, .cand.first .cand-translation .cand-sep { color: inherit; "
+            L"}\n");
     }
+    add(colors.selectedTranslationPos, L".cand.first .cand-translation .cand-pos", L"color");
+    add(colors.selectedTranslationSeparator, L".cand.first .cand-translation .cand-sep", L"color");
     add(colors.menuBackground, L".context-menu, .context-submenu", L"background");
     add(colors.menuBorder, L".context-menu, .context-submenu", L"border-color");
     add(colors.menuText, L".context-menu, .context-submenu, .context-menu-item", L"color");
@@ -462,23 +471,32 @@ bool InjectExternalToolbarSkin(std::wstring &html, const CandidateSkinCatalog::P
 
 void InjectCandidateDocumentSkin(std::wstring &html, const std::wstring &builtInCss, const std::string &skin,
                                  const std::string &base, const std::string &layout, const std::string &theme,
-                                 bool pageArrows)
+                                 bool pageArrows, bool fitContent)
 {
     if (html.empty())
         return;
     const size_t htmlTagEnd = html.find(L'>', html.find(L"<html"));
     if (htmlTagEnd != std::wstring::npos)
     {
-        // data-page-arrows 由候选页的共享样式读取，决定翻页箭头显示与否。
-        html.insert(htmlTagEnd, fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
-                                            L"data-candidate-layout=\"{}\" data-candidate-theme=\"{}\" "
-                                            L"data-page-arrows=\"{}\"",
-                                            string_to_wstring(skin), string_to_wstring(base), string_to_wstring(layout),
-                                            string_to_wstring(theme), pageArrows ? L"on" : L"off"));
+        // data-page-arrows 由候选页的共享样式读取，决定翻页箭头显示与否；
+        // data-fit-content 由下面的规则和卡片的只增不减脚本读取。
+        html.insert(htmlTagEnd,
+                    fmt::format(L" data-candidate-skin=\"{}\" data-candidate-base=\"{}\" "
+                                L"data-candidate-layout=\"{}\" data-candidate-theme=\"{}\" "
+                                L"data-page-arrows=\"{}\" data-fit-content=\"{}\"",
+                                string_to_wstring(skin), string_to_wstring(base), string_to_wstring(layout),
+                                string_to_wstring(theme), pageArrows ? L"on" : L"off", fitContent ? L"on" : L"off"));
     }
     const size_t headEnd = html.find(L"</head>");
     if (headEnd != std::wstring::npos && !builtInCss.empty())
-        html.insert(headEnd, L"<style id=\"built-in-candidate-skin\">" + builtInCss + L"</style>");
+    {
+        // fit_content 去掉各皮肤 .container 的 7em 下限，只留外部皮肤的 min_width_dip 与装饰图宽度
+        // （内置皮肤这两个变量未定义，取 0）；选择器比外部皮肤的 .container:not(:empty) 更具体。
+        html.insert(headEnd, L"<style id=\"built-in-candidate-skin\">" + builtInCss +
+                                 L"\nhtml[data-fit-content=\"on\"] .container:not(:empty) { min-width: "
+                                 L"max(var(--msime-skin-min-width, 0px), var(--msime-skin-decoration-width, 0px)); "
+                                 L"}\n</style>");
+    }
 }
 } // namespace
 
@@ -542,8 +560,12 @@ int PrepareHtmlForWnds()
     const bool pageArrows =
         CandidateSkinCatalog::ResolvePageArrows(std::filesystem::path(assetPath + L"\\skins"), candidateSkin,
                                                 activeExternalCandidateSkin ? &*activeExternalCandidateSkin : nullptr);
+    const bool fitContent =
+        GetConfiguredCandidateWindowFitContent() ||
+        CandidateSkinCatalog::ResolveFitContent(std::filesystem::path(assetPath + L"\\skins"), candidateSkin,
+                                                activeExternalCandidateSkin ? &*activeExternalCandidateSkin : nullptr);
     InjectCandidateDocumentSkin(::HTMLStringCandWnd, builtInCandidateCss, candidateSkin, baseCandidateSkin,
-                                candidateLayout, candidateTheme, pageArrows);
+                                candidateLayout, candidateTheme, pageArrows, fitContent);
     if (activeExternalCandidateSkin)
     {
         const std::wstring skinsRoot = assetPath + L"\\skins";

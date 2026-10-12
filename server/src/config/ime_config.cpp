@@ -128,7 +128,7 @@ bool g_floating_toolbar_auto_hide = false;
 int g_floating_toolbar_auto_hide_delay = kFloatingToolbarAutoHideDelayDefault;
 bool g_floating_toolbar_shadow = true;
 bool g_english_candidates_enabled = false;
-bool g_candidate_translations_enabled = true;
+bool g_candidate_translations_enabled = false;
 int g_english_mixed_input_min_chars = kEnglishMixedInputMinCharsDefault;
 bool g_cloud_candidates_enabled = true;
 // 整句候选来源与去重补位开关：词格、Google 和神经速度档默认开，神经效果档与去重补位默认关。
@@ -138,11 +138,16 @@ bool g_assoc_sentence_neural_desktop = false;
 bool g_assoc_sentence_neural_keyboard = true;
 bool g_assoc_sentence_show_next_on_duplicate = false;
 // octagram 语法模型（八股文 .gram）：总开关默认关；模型 id 默认空（空 = 未选择任何模型）。
-// 权重不进设置页，供配置文件高级调参。
+// 奖励权重与六参数不进设置页，供配置文件高级调参；默认对齐万象现行（wanxiang.schema.yaml）。
 bool g_assoc_sentence_collocation_enabled = false;
 std::string g_assoc_sentence_collocation_model;
-double g_assoc_sentence_collocation_weight = 0.1;
-double g_assoc_sentence_collocation_rerank_weight = 0.05;
+double g_assoc_sentence_collocation_weight = 1.0;
+int g_assoc_sentence_collocation_max_length = 6;
+int g_assoc_sentence_collocation_min_length = 2;
+double g_assoc_sentence_collocation_penalty = -14.0;
+double g_assoc_sentence_collocation_non_penalty = -6.0;
+double g_assoc_sentence_collocation_weak_penalty = -100.0;
+double g_assoc_sentence_collocation_rear_penalty = -18.0;
 // 候选窗整句候选后的来源标签（〔Trigram〕〔神经K〕等），默认不显示。
 bool g_assoc_sentence_source_badge = false;
 bool g_emoji_mixed_input_enabled = false;
@@ -182,6 +187,7 @@ bool g_paired_punctuation_enabled = true;
 std::string g_punctuation_lock = "follow";
 std::string g_candidate_window_layout = "vertical";
 bool g_candidate_window_follow_cursor = true;
+bool g_candidate_window_fit_content = false;
 std::string g_ui_backend = "d2d";
 std::string g_ui_backend_active = "d2d";
 std::string g_candidate_skin = "fluent";
@@ -217,6 +223,7 @@ AiAssistantConfig g_ai_assistant;
 TencentTmtConfig g_tencent_tmt;
 CustomTranslationConfig g_custom_translation;
 NiuTransConfig g_niutrans;
+std::string g_translation_provider = "tencent";
 std::mutex g_network_proxy_mutex;
 NetworkProxyConfig g_network_proxy;
 FrequencyAdjustmentConfig g_frequency_adjustment;
@@ -549,7 +556,7 @@ bool LoadImeConfig()
             g_floating_toolbar_shadow = tbl["general"]["floating_toolbar_shadow"].value_or(true);
         }
         g_english_candidates_enabled = tbl["general"]["cn_en_mixed_input"].value_or(false);
-        g_candidate_translations_enabled = tbl["general"]["candidate_translations"].value_or(true);
+        g_candidate_translations_enabled = tbl["general"]["candidate_translations"].value_or(false);
         {
             const int min_chars =
                 tbl["general"]["cn_en_mixed_input_min_chars"].value_or(kEnglishMixedInputMinCharsDefault);
@@ -566,9 +573,16 @@ bool LoadImeConfig()
         g_assoc_sentence_show_next_on_duplicate = tbl["association"]["sentence_show_next_on_duplicate"].value_or(false);
         g_assoc_sentence_collocation_enabled = tbl["association"]["sentence_collocation_enabled"].value_or(false);
         g_assoc_sentence_collocation_model = tbl["association"]["sentence_collocation_model"].value_or(std::string());
-        g_assoc_sentence_collocation_weight = tbl["association"]["sentence_collocation_weight"].value_or(0.1);
-        g_assoc_sentence_collocation_rerank_weight =
-            tbl["association"]["sentence_collocation_rerank_weight"].value_or(0.05);
+        g_assoc_sentence_collocation_weight = tbl["association"]["sentence_collocation_weight"].value_or(1.0);
+        g_assoc_sentence_collocation_max_length = tbl["association"]["sentence_collocation_max_length"].value_or(6);
+        g_assoc_sentence_collocation_min_length = tbl["association"]["sentence_collocation_min_length"].value_or(2);
+        g_assoc_sentence_collocation_penalty = tbl["association"]["sentence_collocation_penalty"].value_or(-14.0);
+        g_assoc_sentence_collocation_non_penalty =
+            tbl["association"]["sentence_collocation_non_penalty"].value_or(-6.0);
+        g_assoc_sentence_collocation_weak_penalty =
+            tbl["association"]["sentence_collocation_weak_penalty"].value_or(-100.0);
+        g_assoc_sentence_collocation_rear_penalty =
+            tbl["association"]["sentence_collocation_rear_penalty"].value_or(-18.0);
         g_assoc_sentence_source_badge = tbl["association"]["sentence_source_badge"].value_or(false);
         g_emoji_mixed_input_enabled = tbl["general"]["emoji_mixed_input"].value_or(false);
         g_kaomoji_mixed_input_enabled = tbl["general"]["kaomoji_mixed_input"].value_or(false);
@@ -667,6 +681,7 @@ bool LoadImeConfig()
         const std::string layout = tbl["appearance"]["candidate_window_layout"].value_or(std::string("vertical"));
         g_candidate_window_layout = layout == "horizontal" ? "horizontal" : "vertical";
         g_candidate_window_follow_cursor = tbl["appearance"]["candidate_window_follow_cursor"].value_or(true);
+        g_candidate_window_fit_content = tbl["appearance"]["candidate_window_fit_content"].value_or(false);
         g_ui_backend = NormalizeSmallWindowUiBackend(tbl["appearance"]["ui_backend"].value_or(std::string("d2d")));
         const std::string skin = tbl["appearance"]["candidate_skin"].value_or(std::string("fluent"));
         g_candidate_skin = IsValidCandidateSkinId(skin) ? skin : "fluent";
@@ -891,6 +906,28 @@ bool LoadImeConfig()
         g_niutrans.enabled = tbl["niutrans"]["enabled"].value_or(false);
         g_niutrans.app_id = tbl["niutrans"]["app_id"].value_or(std::string());
         g_niutrans.apikey = tbl["niutrans"]["apikey"].value_or(std::string());
+        // [translation].provider 是唯一来源；旧配置缺这个键时从三个 enabled 布尔推导，
+        // 再把布尔按 provider 归一，保证旧版读回时选择不丢。
+        g_translation_provider = tbl["translation"]["provider"].value_or(std::string());
+        if (IsValidTranslationProvider(g_translation_provider))
+        {
+            // 用户在设置页明确选过，腾讯云的旧门禁跟着选择走。
+            g_tencent_tmt.enabled = g_translation_provider == "tencent";
+        }
+        else
+        {
+            // 推导出腾讯云时保留 tencent_tmt.enabled 原值：旧版要它为 true 才会发请求，
+            // 升级不能替用户把候选词发给腾讯云。
+            if (g_niutrans.enabled)
+                g_translation_provider = "niutrans";
+            else if (g_custom_translation.enabled)
+                g_translation_provider = "custom";
+            else
+                g_translation_provider = "tencent";
+        }
+        g_niutrans.enabled = g_translation_provider == "niutrans";
+        g_custom_translation.enabled = g_translation_provider == "custom";
+        PublishTranslationConfig();
         {
             NetworkProxyConfig proxy;
             proxy.mode = tbl["network"]["proxy_mode"].value_or(std::string("system"));

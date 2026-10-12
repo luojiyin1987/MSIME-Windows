@@ -13,7 +13,6 @@
 #include "ipc/candidate_ui_owner.h"
 #include "ipc/input_key_policy.h"
 #include "utils/common_utils.h"
-#include "fmt/xchar.h"
 #include <utf8.h>
 #include "global/globals.h"
 #include "engine/common/helpcode_utils.h"
@@ -380,8 +379,7 @@ void PrepareCandidateTranslationRequest()
         }
         return;
     }
-    const std::string scope = fmt::format("{}|{}|{}", GetConfiguredTencentTmt().enabled,
-                                          GetConfiguredCustomTranslation().enabled, GetConfiguredNiuTrans().enabled);
+    const std::string scope = CloudTranslation::ActiveProviderScope();
     if (scope != g_candidate_translation_scope)
     {
         g_candidate_translation_scope = scope;
@@ -501,6 +499,8 @@ int EnglishSlotMaximum()
 FanyImeIpc::EnglishPlacement CurrentEnglishPlacement(const std::vector<WordItem> &items)
 {
     FanyImeIpc::EnglishPlacement placement;
+    // 每页候选数没有英文时也要给：混输 emoji 的首个靠它放到首页末位。
+    placement.page_size = static_cast<size_t>(EnglishSlotMaximum()) + 1;
     // 没有英文候选就用不上，省掉一次用户库查询。
     if (!g_inputSession || std::none_of(items.begin(), items.end(), [](const WordItem &item) {
             return item.source == CandidateSource::EnglishDictionary;
@@ -508,7 +508,6 @@ FanyImeIpc::EnglishPlacement CurrentEnglishPlacement(const std::vector<WordItem>
         return placement;
     placement.input = EnglishInputKey();
     placement.require_exact = g_inputSession->reads_as_pinyin();
-    placement.page_size = static_cast<size_t>(EnglishSlotMaximum()) + 1;
     // 调频关闭时不用学到的槽位，英文回到默认位置。
     if (GetConfiguredFrequencyAdjustment().mode != "disabled")
     {
