@@ -163,6 +163,7 @@ void RunScenarios(size_t iterations, const std::vector<std::string> &present, co
         prefix + "collocation-missing-first-touch", iterations, false,
         [&](size_t index) { return ResolveCollocationModelPath(first_touch[index]); }, 0);
     Measure(prefix + "neural-present-hot", iterations, true, [](size_t) { return ResolveNeuralDesktopModelPath(); });
+    Measure(prefix + "data-directory-only", iterations, true, [](size_t) { return metasequoia::data_directory(); });
     Measure(prefix + "disabled-empty-id", iterations, false, [](size_t) { return ResolveCollocationModelPath(""); });
 }
 } // namespace

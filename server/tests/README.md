@@ -115,12 +115,17 @@ It does not simulate all disk workloads.
 The benchmark calls the production path resolvers used by `ApplyConfiguration()`.
 It measures their cost per call.
 It does not measure full `handle_key()` latency.
-Each call also reads the CRT environment override and builds a path.
-An installed machine can use the cached registry path instead.
-Compare the `disabled-empty-id` row with enabled rows to estimate the added resolver cost.
+The benchmark sets `METASEQUOIA_IME_DATA_DIR` to an isolated temporary directory.
+Each resolver call reads this override and builds a path.
+Normal installations do not set this override. Their directory lookup takes a different path.
+The `disabled-empty-id` row returns before `data_directory()` runs.
+The `data-directory-only` row measures `data_directory()` with the temporary override.
+Median differences give only a rough scale for the remaining resolver work.
+Do not subtract percentiles from separate rows to assign costs to path joining or file checks.
+Use the rows to inspect latency distributions and tail latency across path access patterns.
+They do not establish the same cost or performance loss in production.
 Run each case more than once on the target Windows machine.
 Record the storage type and active disk workload with the CSV results.
-The Server CI job uploads `model-path-latency` with three Windows runner samples.
 
 ## Recommended Practice
 
